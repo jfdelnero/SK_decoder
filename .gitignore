@@ -1,0 +1,13 @@
+*.obj
+*.o
+*.dll
+*.exe
+*.so
+*.map
+*.a
+*.dylib
+*.app
+*.dmg
+sk_ungroup
+sk_sfx2wav
+sk_gfx2bmp
