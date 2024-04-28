@@ -8,7 +8,8 @@ Support:
 
 Commmand:
 
-./sk_ungroup group_files [-L]
+To unpack : ./sk_ungroup group_files [-L] [-folder]
+To pack : ./sk_ungroup -pack in_folders_paths
 
 ### sk_sfx2wav - Convert sound files to wav files.
 

@@ -160,7 +160,7 @@ int ungroup( char * group_file, int dry, int subfolder )
 	file_cache grp_file;
 	char str_tmp[PATH_MAX];
 
-	if( open_file( &grp_file, group_file, 0 ) < 0 )
+	if( open_file( &grp_file, group_file, -1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n", group_file);
 		return -1;
@@ -239,15 +239,138 @@ int ungroup( char * group_file, int dry, int subfolder )
 	return 0;
 }
 
+int group( char * group_file, int dry, char * outputfile )
+{
+	filefoundinfo finfo;
+	void * handle;
+	int ret;
+	uint16_t count,cnt2;
+	uint32_t checksum;
+	int i, totalsize, ofs, file_data_offset;
+	char data_file_path[PATH_MAX];
+	char tmp_str[PATH_MAX];
+	file_cache data_file;
+	file_cache grp_file;
+	unsigned char c;
+	const char * sentinel="!SENTINEL!";
+
+	totalsize = 0;
+	count = 0;
+	handle = hxc_find_first_file( group_file, "*.*", &finfo);
+	if(handle)
+	{
+		do
+		{
+			if( !finfo.isdirectory )
+			{
+				printf("%s\n",finfo.filename);
+				totalsize += finfo.size;
+				count++;
+			}
+			ret = hxc_find_next_file( handle, group_file, "*.*", &finfo);
+		}while (ret);
+
+		hxc_find_close( handle );
+	}
+
+	cnt2 = 0;
+	if( count )
+	{
+		printf("\n%d file(s)\n",count);
+
+		if( open_file( &grp_file, outputfile, 2 + (22 * (count + 1)) + totalsize + 4, 0 ) < 0 )
+		{
+			printf("Can't create : %s\n", outputfile);
+			return -1;
+		}
+
+		ofs = 0;
+		set_ushort( &grp_file, ofs, count);
+		ofs += 2;
+		file_data_offset = ofs + (22 * (count + 1));
+
+		checksum = 0;
+		handle = hxc_find_first_file( group_file, "*.*", &finfo);
+		if(handle)
+		{
+			do
+			{
+				if( !finfo.isdirectory )
+				{
+					sprintf(data_file_path,"%s/%s",group_file,finfo.filename);
+					printf("Input file %s ...\n",data_file_path);
+
+					if( open_file( &data_file, data_file_path, -1, 0 ) < 0 )
+					{
+						printf("File access error : %s\n", group_file);
+						hxc_find_close( handle );
+						return -1;
+					}
+
+					hxc_getfilenamebase((char*)data_file_path,(char*)tmp_str, SYS_PATH_TYPE);
+
+					for(i=0;i<8+1+3;i++)
+					{
+						c = tmp_str[i];
+						if(!c)
+							break;
+						set_byte( &grp_file, 2 + (22 * cnt2) + i, c);
+					}
+
+					set_ulong( &grp_file, 2 + (22 * cnt2) + 14, file_data_offset);
+
+					for(i=0;i<data_file.file_size;i++)
+					{
+						c = get_byte( &data_file, i, NULL );
+						set_byte( &grp_file, file_data_offset + i, c);
+						checksum += c;
+					}
+
+					file_data_offset += data_file.file_size;
+
+					close_file( &data_file );
+
+					cnt2++;
+				}
+				ret = hxc_find_next_file( handle, group_file, "*.*", &finfo);
+			}while (ret && cnt2 < count);
+
+			for(i=0;i<8+1+3;i++)
+			{
+				c = sentinel[i];
+				if(!c)
+					break;
+				set_byte( &grp_file, 2 + (22 * cnt2) + i, c);
+			}
+
+			set_ulong( &grp_file, 2 + (22 * cnt2) + 14, file_data_offset);
+
+			set_ulong( &grp_file, grp_file.file_size - 4, checksum);
+
+			hxc_find_close( handle );
+			
+			printf("Group file checksum : 0x%.8X\n",checksum);
+			
+		}
+
+		close_file(&grp_file);
+	}
+	return 0;
+}
+
 int main (int argc, char ** argv)
 {
-	int i, dry,createsubfolder;
+	int i, j, dry, createsubfolder;
+	char str_tmp[PATH_MAX];
+	char output_file[PATH_MAX];
 
 	printf("SK UNGROUP V1.01 by HxC2001 (2002-2024 http://hxc2001.free.fr)\n\n");
 
 	if ( argc < 2 )
 	{
-		printf("Syntax : %s group_files [-L] [-folder]\n",argv[0]);
+		printf("Syntax :\n");
+		printf("To unpack : %s group_files [-L] [-folder]\n",argv[0]);
+		printf("To pack : %s -pack in_folders_paths\n",argv[0]);
 		exit(1);
 	}
 
@@ -261,6 +384,43 @@ int main (int argc, char ** argv)
 	if( isOption(argc, argv,"folder",NULL, NULL) )
 	{
 		createsubfolder = 1;
+	}
+
+	output_file[0]=0;
+	if( isOption(argc, argv,"out",(char*)&output_file, NULL) )
+	{
+	}
+
+	if( isOption(argc, argv,"pack",(char*)&str_tmp, NULL) )
+	{
+		if( !strlen(output_file) )
+		{
+			i = 1;
+			while( i < argc )
+			{
+				if(argv[i][0] != '-')
+				{
+					for(j=0;j<100;j++)
+					{
+						sprintf(output_file,"GROUP%.2d_ungrouped",j);
+						if( strstr(argv[i],output_file) )
+						{
+							sprintf(output_file,"GROUP%.2d",j);
+							break;
+						}
+					}
+					group( (char*)argv[i], dry, (char*)output_file );
+				}
+				i++;
+			}
+			
+			exit(0);
+		}
+		else
+		{
+			group( (char*)str_tmp, dry, (char*)output_file );
+			exit(0);			
+		}
 	}
 
 	i = 1;
