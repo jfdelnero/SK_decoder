@@ -69,7 +69,7 @@ int export_sfx(char * in_file)
 
 	ret = -1;
 
-	if( open_file( &sfx_file, in_file, 0 ) < 0 )
+	if( open_file( &sfx_file, in_file, -1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n",in_file);
 		return -1;
@@ -175,7 +175,7 @@ int export_voices(char * in_file)
 	FILE * subtitles_file;
 
 	printf("Extract voices file : %s ...\n",in_file);
-	if( open_file( &voices_file, in_file, 0 ) < 0 )
+	if( open_file( &voices_file, in_file,-1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n",in_file);
 		return -1;

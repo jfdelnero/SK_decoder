@@ -204,7 +204,7 @@ int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *pal
 
 	if(strlen(palettefile1))
 	{
-		if( open_file( &pal_file, palettefile1, 0 ) >= 0 )
+		if( open_file( &pal_file, palettefile1, -1, 0 ) >= 0 )
 		{
 			numcolor = get_ushort( &pal_file, 0, NULL);
 			for(i=0;i<numcolor;i++)
@@ -224,7 +224,7 @@ int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *pal
 
 	if(strlen(palettefile2))
 	{
-		if( open_file( &pal_file, palettefile2, 0 ) >= 0 )
+		if( open_file( &pal_file, palettefile2, -1, 0 ) >= 0 )
 		{
 			numcolor = get_ushort( &pal_file, 0, NULL);
 			for(i=0;i<numcolor;i++)
@@ -266,7 +266,7 @@ int export_gfx( char * in_file, char * pal1_path, char * pal2_path )
 
 	unsigned int xsize,ysize;
 
-	if( open_file( &gfx_file, in_file, 0 ) < 0 )
+	if( open_file( &gfx_file, in_file, -1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n",in_file);
 		return -1;
@@ -366,7 +366,7 @@ int export_mmp( char * in_file, char * pal1_path, char * pal2_path )
 
 	unsigned int xsize,ysize;
 
-	if( open_file( &mmp_file, in_file, 0 ) < 0 )
+	if( open_file( &mmp_file, in_file, -1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n",in_file);
 		return -1;
@@ -444,7 +444,7 @@ int export_ubg( char * in_file, char * pal1_path, char * pal2_path )
 
 	unsigned int xsize,ysize;
 
-	if( open_file( &ubg_file, in_file, 0 ) < 0 )
+	if( open_file( &ubg_file, in_file, -1, 0 ) < 0 )
 	{
 		printf("File access error : %s\n",in_file);
 		return -1;
