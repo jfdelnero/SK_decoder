@@ -46,6 +46,10 @@
 #include "cache.h"
 #include "cmd_param.h"
 
+#include "utils.h"
+
+#include "linux/limits.h"
+
 typedef struct files_table_
 {
 	char file_name[64];
@@ -92,11 +96,12 @@ int update_entries_size(files_table * entry, int nb)
 	return nb;
 }
 
-int extract_file( file_cache * grp_file, files_table * entry )
+int extract_file( file_cache * grp_file, char * dstfolder, files_table * entry )
 {
 	FILE * f_out;
 	int i;
 	unsigned char page[8192];
+	char path[1024];
 
 	if(!strcmp(entry->file_name,"!SENTINEL!"))
 	{
@@ -108,7 +113,16 @@ int extract_file( file_cache * grp_file, files_table * entry )
 								entry->offset,
 								entry->size);
 
-	f_out = fopen( entry->file_name,"w+b");
+	if(dstfolder)
+	{
+		sprintf(path,"%s/%s",dstfolder,entry->file_name);
+	}
+	else
+	{
+		strcpy(path,entry->file_name);
+	}
+
+	f_out = fopen( path,"w+b");
 	if( f_out != NULL )
 	{
 		for( i = 0; i < entry->size; i++ )
@@ -136,7 +150,7 @@ int extract_file( file_cache * grp_file, files_table * entry )
 	return 0;
 }
 
-int ungroup( char * group_file, int dry )
+int ungroup( char * group_file, int dry, int subfolder )
 {
 	files_table * bufferf;
 	int nbfichier;
@@ -144,6 +158,7 @@ int ungroup( char * group_file, int dry )
 	int i;
 	int file_table_offset;
 	file_cache grp_file;
+	char str_tmp[PATH_MAX];
 
 	if( open_file( &grp_file, group_file, 0 ) < 0 )
 	{
@@ -191,9 +206,24 @@ int ungroup( char * group_file, int dry )
 	}
 	else
 	{
-		for( i=0; i < nbfichier; i++ )
+		str_tmp[0] = 0;
+		if( subfolder )
 		{
-			extract_file( &grp_file, &bufferf[i] );
+			hxc_getfilenamebase( group_file, (char*)&str_tmp, SYS_PATH_TYPE);
+			strcat(str_tmp,"_ungrouped");
+			hxc_mkdir(str_tmp);
+
+			for( i=0; i < nbfichier; i++ )
+			{
+				extract_file( &grp_file, (char*)&str_tmp, &bufferf[i] );
+			}
+		}
+		else
+		{
+			for( i=0; i < nbfichier; i++ )
+			{
+				extract_file( &grp_file, NULL, &bufferf[i] );
+			}
 		}
 	}
 
@@ -211,13 +241,13 @@ int ungroup( char * group_file, int dry )
 
 int main (int argc, char ** argv)
 {
-	int i, dry;
+	int i, dry,createsubfolder;
 
 	printf("SK UNGROUP V1.01 by HxC2001 (2002-2024 http://hxc2001.free.fr)\n\n");
 
 	if ( argc < 2 )
 	{
-		printf("Syntax : %s group_files [-L]\n",argv[0]);
+		printf("Syntax : %s group_files [-L] [-folder]\n",argv[0]);
 		exit(1);
 	}
 
@@ -227,12 +257,18 @@ int main (int argc, char ** argv)
 		dry = 1;
 	}
 
+	createsubfolder = 0;
+	if( isOption(argc, argv,"folder",NULL, NULL) )
+	{
+		createsubfolder = 1;
+	}
+
 	i = 1;
 	while( i < argc )
 	{
 		if(argv[i][0] != '-')
 		{
-			ungroup( argv[i], dry );
+			ungroup( argv[i], dry, createsubfolder );
 		}
 		i++;
 	}
