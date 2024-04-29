@@ -251,7 +251,7 @@ int group( char * group_file, int dry, char * outputfile )
 	char tmp_str[PATH_MAX];
 	file_cache data_file;
 	file_cache grp_file;
-	unsigned char c;
+	unsigned char c,xcheck;
 	const char * sentinel="!SENTINEL!";
 
 	totalsize = 0;
@@ -285,7 +285,7 @@ int group( char * group_file, int dry, char * outputfile )
 		}
 
 		ofs = 0;
-		set_ushort( &grp_file, ofs, count);
+		set_ushort( &grp_file, ofs, count + 1);
 		ofs += 2;
 		file_data_offset = ofs + (22 * (count + 1));
 
@@ -309,13 +309,18 @@ int group( char * group_file, int dry, char * outputfile )
 
 					hxc_getfilenamebase((char*)data_file_path,(char*)tmp_str, SYS_PATH_TYPE);
 
+					xcheck = 0x00;
 					for(i=0;i<8+1+3;i++)
 					{
 						c = tmp_str[i];
 						if(!c)
 							break;
+						xcheck ^= c;
 						set_byte( &grp_file, 2 + (22 * cnt2) + i, c);
 					}
+
+					// File name xor checksum
+					set_byte( &grp_file, 2 + (22 * cnt2) + 13, xcheck);
 
 					set_ulong( &grp_file, 2 + (22 * cnt2) + 14, file_data_offset);
 
@@ -348,9 +353,9 @@ int group( char * group_file, int dry, char * outputfile )
 			set_ulong( &grp_file, grp_file.file_size - 4, checksum);
 
 			hxc_find_close( handle );
-			
+
 			printf("Group file checksum : 0x%.8X\n",checksum);
-			
+
 		}
 
 		close_file(&grp_file);
@@ -413,13 +418,13 @@ int main (int argc, char ** argv)
 				}
 				i++;
 			}
-			
+
 			exit(0);
 		}
 		else
 		{
 			group( (char*)str_tmp, dry, (char*)output_file );
-			exit(0);			
+			exit(0);
 		}
 	}
 
