@@ -45,8 +45,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "bmp_file.h"
 #include "cache.h"
+
+#include "font4x6.h"
 
 #include "cmd_param.h"
 
@@ -129,6 +132,89 @@ int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *pal
 	bmpRLE8b_write(filename,&bmp);
 
 	return 0;
+}
+
+void printchar(unsigned char * buf, int bufxsize, int bufysize, int xpos, int ypos, uint32_t flags, unsigned char c)
+{
+	int startoffset;
+	int charoffset;
+	int x,y;
+	float level;
+	int pix;
+
+	level = 0.7;
+	if(c >= ' ' && c < 128)
+	{
+		startoffset = (ypos * bufxsize) + xpos;
+		charoffset = (c - ' ') * 6;
+
+		for(y=0;y<6;y++)
+		{
+			for(x=0;x<4;x++)
+			{
+				if(startoffset + (y*bufxsize) + x < bufxsize*bufysize )
+				{
+					if( font4x6[charoffset + y] & (0x80 >> x) )
+					{
+							pix = buf[startoffset + (y*bufxsize) + x];
+							buf[startoffset + (y*bufxsize) + x] = (uint8_t)((float)pix * level);
+					}
+					else
+					{
+						if( flags & 0x1)
+						{
+							buf[startoffset + (y*bufxsize) + x] = 0x10;
+						}
+
+					}
+				}
+
+
+			}
+		}
+	}
+}
+
+int bmp_printf(unsigned char * buf, int xsize, int ysize, int xpos, int ypos, uint32_t flags, char * string, ... )
+{
+	va_list marker;
+	va_start( marker, string );
+	char strbuf[512];
+	int i;
+
+	strbuf[sizeof(strbuf) - 1] = '\0';
+	vsnprintf(strbuf,sizeof(strbuf) - 1, string,marker);
+
+	i = 0;
+	while(strbuf[i])
+	{
+		printchar(buf, xsize, ysize, xpos + (i * 5) , ypos, flags, strbuf[i]);
+		i++;
+	}
+
+	va_end( marker );
+
+	return 0;
+}
+
+void fillbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
+{
+	int startoffset;
+	int x,y;
+	int pix;
+	float level;
+
+	startoffset = (ypos1 * bufxsize) + xpos1;
+	level = (float)(255 - wall) / (float)255;
+
+	for( y = 0; y < (ypos2 - ypos1) + 1; y++)
+	{
+		for( x = 0; x < (xpos2 - xpos1) + 1; x++)
+		{
+			pix = buf[startoffset + (y*bufxsize) + x];
+			buf[startoffset + (y*bufxsize) + x] = (uint8_t)((float)pix * level);
+		}
+	}
 }
 
 void drawbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
@@ -221,14 +307,15 @@ void drawbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypo
 }
 
 
-int export_maz2bmp( char * in_file)
+int export_maz2bmp( char * in_file )
 {
 	file_cache maz_file;
 	int ofs;
-	int x,y;
+	int x,y,i,j;
 	unsigned char c;
 	uint32_t header;
 	int step_size;
+	int nb_obj;
 
 	char nomfichier[256*2];
 	char nomfichier2[256];
@@ -236,6 +323,13 @@ int export_maz2bmp( char * in_file)
 	unsigned char * bmp_buf;
 
 	unsigned int xsize,ysize;
+
+	// #### MAZ formats
+	// - Little endian
+	// 0x4F 0x4E [uint16_t : line_map_size - 1 (steps)] [uint16_t : col_map_size (steps)] [uint8_t: wall_data (line_map_size*col_map_size][uint8_t: event_data ? (line_map_size*col_map_size]
+	// [number_of_objects ?][uint16_t:code, uint16_t:xpos, uint16_t:ypos, 12 uint8_t obj data  ]
+
+	printf("MAZ file : %s\n", in_file);
 
 	if( open_file( &maz_file, in_file, -1, 0 ) < 0 )
 	{
@@ -257,7 +351,7 @@ int export_maz2bmp( char * in_file)
 		*strrchr(nomfichier2,'.')='_';
 	}
 
-	step_size = 16;
+	step_size = 32;
 
 	ofs = 0;
 	header = get_ushort(&maz_file, ofs, NULL);
@@ -277,7 +371,7 @@ int export_maz2bmp( char * in_file)
 
 	ofs += 2;
 
-	printf("offset: 0x%.8x res: %d by %d\n",ofs,xsize,ysize);
+	printf("offset: 0x%.8x map size: %d by %d\n",ofs,xsize,ysize);
 	sprintf(nomfichier,"%s.bmp",nomfichier2);
 
 	bmp_buf = (unsigned char*)malloc((xsize*step_size)*(ysize*step_size));
@@ -294,6 +388,93 @@ int export_maz2bmp( char * in_file)
 				drawbox(bmp_buf, (xsize*step_size), (ysize*step_size), x * step_size, y * step_size,((x + 1) * step_size) - 1, ((y + 1) * step_size) - 1, c);
 			}
 		}
+
+		ofs += (ysize * xsize);
+
+		for(y=0;y<ysize;y++)
+		{
+			for(x=0;x<xsize;x++)
+			{
+				c = get_byte(&maz_file, ofs + ( y * xsize ) + x , NULL);
+
+				fillbox(bmp_buf, (xsize*step_size), (ysize*step_size), x * step_size, y * step_size,((x + 1) * step_size) - 1, ((y + 1) * step_size) - 1, c);
+			}
+		}
+
+		ofs += (ysize * xsize);
+
+		nb_obj = get_ushort(&maz_file, ofs, NULL);
+
+		printf("List 1 : %d items (offset 0%X) ...\n",nb_obj,ofs);
+		ofs += 2;
+
+		for(i=0;i<nb_obj;i++)
+		{
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + 8, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + 8, 0x0001, "<%.2X>", get_ushort(&maz_file, ofs, NULL ) );
+
+			printf("Item %.3d (%.3d, %.3d) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ));
+			for(j=0;j<18;j++)
+			{
+				printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
+			}
+			printf("\n");
+
+			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
+				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
+
+			if( get_ushort(&maz_file, ofs + 2, NULL ) >= ysize)
+				printf(" bad y position ! (%d)\n", get_ushort(&maz_file, ofs + 2, NULL ));
+
+			ofs += 18;
+		}
+
+		nb_obj = get_ushort(&maz_file, ofs, NULL);
+		printf("List 2 : %d items (offset 0%X) ...\n",nb_obj,ofs);
+
+		ofs += 2;
+
+		for(i=0;i<nb_obj;i++)
+		{
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + 8, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + 8 + 8, 0x0000, "%.2X", get_ushort(&maz_file, ofs, NULL ) );
+
+			printf("Item %.3d (%.3d, %.3d) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ));
+			if( get_ushort(&maz_file, ofs + 8, NULL ) != 0xD499 )
+			{
+				for(j=0;j<18;j++)
+				{
+					printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
+				}
+				printf("\n");
+			}
+			else
+			{
+				for(j=0;j<10;j++)
+				{
+					printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
+				}
+				printf("\n");
+			}
+
+			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
+				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
+
+			if( get_ushort(&maz_file, ofs + 2, NULL ) >= ysize)
+				printf(" bad y position ! (%d)\n", get_ushort(&maz_file, ofs + 2, NULL ));
+
+			if( get_ushort(&maz_file, ofs + 8, NULL ) != 0xD499 )
+			{
+				//printf("-- 0x%.4X\n",get_ushort(&maz_file, ofs + 8, NULL ));
+				ofs += 8;
+			}
+
+			ofs += 10;
+		}
+
+		nb_obj = get_ushort(&maz_file, ofs, NULL);
+
+		printf("List 3 : %d items (offset 0%X) ...\n",nb_obj,ofs);
+
+		ofs += 2;
 
 		rawtobmp(bmp_buf,(xsize*step_size),(ysize*step_size),nomfichier,"","");
 

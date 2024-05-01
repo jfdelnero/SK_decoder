@@ -15,7 +15,7 @@ sk_gfx2bmp:  obj/cmd_param.o obj/cache.o obj/sk_gfx2bmp.o obj/bmp_file.o obj/uti
 sk_sfx2wav:  obj/cmd_param.o obj/cache.o obj/sk_sfx2wav.o obj/sfxunpacker.o obj/wave.o obj/utils.o
 	${CC} -o $@    $^ $(LDFLAGS)
 
-sk_maz:  obj/cmd_param.o obj/cache.o obj/sk_maz.o obj/bmp_file.o obj/utils.o
+sk_maz:  obj/cmd_param.o obj/cache.o obj/sk_maz.o obj/bmp_file.o obj/utils.o obj/font4x6.o
 	${CC} -o $@    $^ $(LDFLAGS)
 
 $(objects): obj/%.o: src/%.c
