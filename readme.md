@@ -51,10 +51,15 @@ Command:
 
 Note: use -mon for .MON/.Gxx/.POJ/.WPN files, -mmp for ".MMP" files and -ubg for ".UBG" files.
 
+### sk_maz - Convert / decode MAZ files (map / maze level file)
+
+Command:
+
+./sk_maz maz_files.maz
+
 ### No "yet?" supported formats :
 
  - ".BGF"
- - ".MAZ" (Maze map)
  - ".IXY" (Sprite location information ?)
  - ".Sxx" (Script ?)
  - ".MMS" (Script ?)
@@ -65,7 +70,7 @@ Note: use -mon for .MON/.Gxx/.POJ/.WPN files, -mmp for ".MMP" files and -ubg for
  - ".DEF" (Object types definition ?)
  - ".ENC"
  - ".BNK" (Midi instrument patch)
- - ".HMP" (Human Machine Interfaces MIDI P (HMP) Music files)
+ - ".HMP" (Human Machine Interfaces MIDI P (HMP) Music files - use hmp2mid or wildmidi to read them)
  - ".MVE" (Movie files)
 
 -------------------------------------------------------------------------------
