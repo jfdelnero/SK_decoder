@@ -476,6 +476,18 @@ int export_maz2bmp( char * in_file )
 
 		ofs += 2;
 
+		for(x=0;x<xsize;x++)
+		{
+			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), (step_size * x) + (step_size / 4), (step_size / 4), 0x0, "%d", x );
+			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), (step_size * x) + (step_size / 4), ((ysize-1) * step_size ) + (step_size / 4), 0x0, "%d", x );
+		}
+
+		for(y=0;y<ysize;y++)
+		{
+			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), (step_size / 4) , (step_size * y) + (step_size / 4), 0x0, "%d", y );
+			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), ((xsize-1) * step_size ) + (step_size / 4), (step_size * y) + (step_size / 4), 0x0, "%d", y );
+		}
+
 		rawtobmp(bmp_buf,(xsize*step_size),(ysize*step_size),nomfichier,"","");
 
 		free(bmp_buf);
