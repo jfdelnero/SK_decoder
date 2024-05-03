@@ -312,10 +312,11 @@ int export_maz2bmp( char * in_file )
 	file_cache maz_file;
 	int ofs;
 	int x,y,i,j;
+	int x_shift, y_shift;
 	unsigned char c;
 	uint32_t header;
 	int step_size;
-	int nb_obj;
+	int nb_obj,item_size;
 
 	char nomfichier[256*2];
 	char nomfichier2[256];
@@ -429,13 +430,32 @@ int export_maz2bmp( char * in_file )
 		}
 
 		nb_obj = get_ushort(&maz_file, ofs, NULL);
-		printf("List 2 : %d items (offset 0%X) ...\n",nb_obj,ofs);
+		printf("Wall decoration / properties list : %d items (offset 0x%X) ...\n",nb_obj,ofs);
 
 		ofs += 2;
 
 		for(i=0;i<nb_obj;i++)
 		{
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + 8, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + 8 + 8, 0x0000, "%.2X", get_ushort(&maz_file, ofs, NULL ) );
+			x_shift = (step_size / 2) - ((4+4+1)/2);
+			y_shift = (step_size / 2) - ((6)/2);
+
+			switch(get_byte(&maz_file, ofs + 6, NULL ) & 0xF)
+			{
+				case 0: // Face nord
+					y_shift -= (step_size / 3);
+				break;
+				case 1: // Face ouest
+					x_shift -= (step_size / 3);
+				break;
+				case 2: // Face sud
+					y_shift += (step_size / 3);
+				break;
+				case 3: // Face est
+					x_shift += (step_size / 3);
+				break;
+			}
+
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + x_shift, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + y_shift, 0x0000, "W%.2X", get_ushort(&maz_file, ofs, NULL ) );
 
 			printf("Item %.3d (%.3d, %.3d) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ));
 			if( get_ushort(&maz_file, ofs + 8, NULL ) != 0xD499 )
@@ -472,10 +492,76 @@ int export_maz2bmp( char * in_file )
 
 		nb_obj = get_ushort(&maz_file, ofs, NULL);
 
-		printf("List 3 : %d items (offset 0%X) ...\n",nb_obj,ofs);
+		//////////////////////////////////////////////////////////////////////
+
+		printf("Object list : %d items (offset 0x%X) ...\n",nb_obj,ofs);
 
 		ofs += 2;
 
+		for(i=0;i<nb_obj;i++)
+		{
+			item_size = 0x1C;
+
+			//item_size += (get_byte(&maz_file, ofs + item_size - 4, NULL ) * 0x10);
+
+			//if( get_byte(&maz_file, ofs + item_size - 4, NULL ) )
+
+			// When an object contains different items (example chest...)
+			{
+				while ( get_byte(&maz_file, ofs + item_size - 2, NULL ) )
+				{
+					item_size += 0x10;
+				}
+			}
+
+			printf("Item %.3d (%.3d, %.3d) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ));
+			for(j=0;j<item_size;j++)
+			{
+				printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
+			}
+			printf("\n");
+
+			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
+				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
+
+			if( get_ushort(&maz_file, ofs + 2, NULL ) >= ysize)
+				printf(" bad y position ! (%d)\n", get_ushort(&maz_file, ofs + 2, NULL ));
+
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + 16, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + 16, 0x0000, "o%.2X", get_ushort(&maz_file, ofs, NULL ) );
+
+			ofs += item_size;
+		}
+
+		nb_obj = get_ushort(&maz_file, ofs, NULL);
+
+		printf("List 4 : %d items (offset 0x%X) ...\n",nb_obj,ofs);
+
+		ofs += 2;
+
+		for(i=0;i<nb_obj;i++)
+		{
+			item_size = 0x12;
+			item_size += (get_byte(&maz_file, ofs + item_size - 2, NULL ) * 0xE);
+
+			printf("Item %.3d (%.3d, %.3d) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ));
+			for(j=0;j<item_size;j++)
+			{
+				printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
+			}
+			printf("\n");
+
+			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
+				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
+
+			if( get_ushort(&maz_file, ofs + 2, NULL ) >= ysize)
+				printf(" bad y position ! (%d)\n", get_ushort(&maz_file, ofs + 2, NULL ));
+
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + 8, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + 16, 0x0000, "M%.2X", get_ushort(&maz_file, ofs, NULL ) );
+
+			ofs += item_size;
+		}
+
+		//0x1C  uint16_t type? uint16_t:ypos, uint16_t:xpos
 		for(x=0;x<xsize;x++)
 		{
 			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), (step_size * x) + (step_size / 4), (step_size / 4), 0x0, "%d", x );
