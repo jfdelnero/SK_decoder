@@ -459,7 +459,7 @@ int export_maz2bmp( char * in_file )
 
 			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  get_ushort(&maz_file, ofs + 4, NULL ) * step_size + x_shift, (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + y_shift, 0x0000, "W%.2X", get_ushort(&maz_file, ofs, NULL ) );
 
-			printf("Item %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs );
+			printf("Decoration %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs );
 			if( get_ushort(&maz_file, ofs + 8, NULL ) != 0xD499 )
 			{
 				for(j=0;j<18;j++)
@@ -485,7 +485,6 @@ int export_maz2bmp( char * in_file )
 
 			if( get_ushort(&maz_file, ofs + 8, NULL ) != 0xD499 )
 			{
-				//printf("-- 0x%.4X\n",get_ushort(&maz_file, ofs + 8, NULL ));
 				ofs += 8;
 			}
 
@@ -504,7 +503,7 @@ int export_maz2bmp( char * in_file )
 		{
 			item_size = 0x1C;
 
-			printf("Item %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL )), ofs  );
+			printf("Object %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL )), ofs  );
 			for(j=0;j<item_size;j++)
 			{
 				printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
@@ -522,7 +521,7 @@ int export_maz2bmp( char * in_file )
 			{
 				for(j = 0; j<items;j++)
 				{
-					printf("\tL1 sub item %.3d (off:0x%.4X) : ",j, ofs + item_size - 2 );
+					printf("\tObject_sub_item %.3d (off:0x%.4X) : ",j, ofs + item_size - 2 );
 					for(k=0;k< 16; k++)
 					{
 						printf("%.2X ", get_byte(&maz_file, ofs + item_size - 2 + k, NULL ) );
@@ -537,7 +536,7 @@ int export_maz2bmp( char * in_file )
 			{
 				for(j = 0; j<sub_items;j++)
 				{
-					printf("\tL2 sub item %.3d (off:0x%.4X) : ", j, ofs + item_size);
+					printf("\t\tObject_sub_item2 %.3d (off:0x%.4X) : ", j, ofs + item_size);
 					for(k=0;k< 16; k++)
 					{
 						printf("%.2X ", get_byte(&maz_file, ofs + item_size + k, NULL ) );
@@ -551,7 +550,7 @@ int export_maz2bmp( char * in_file )
 				{
 					for(j = 0; j<sub_items2;j++)
 					{
-						printf("\t\tL3 sub item %.3d (off:0x%.4X) : ", j, ofs + item_size);
+						printf("\t\tL2_sub_item %.3d (off:0x%.4X) : ", j, ofs + item_size);
 						for(k=0;k< 14; k++)
 						{
 							printf("%.2X ", get_byte(&maz_file, ofs + item_size + k, NULL ) );
@@ -574,7 +573,7 @@ int export_maz2bmp( char * in_file )
 		nb_obj = get_ushort(&maz_file, ofs, NULL);
 
 		printf("\n-----------------------------------------------------------\n");
-		printf("List 4 : %d items (offset 0x%X) ...\n\n",nb_obj,ofs);
+		printf("Monsters_list : %d items (offset 0x%X) ...\n\n",nb_obj,ofs);
 
 		ofs += 2;
 
@@ -582,7 +581,7 @@ int export_maz2bmp( char * in_file )
 		{
 			item_size = 0x12;
 
-			printf("Item %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs);
+			printf("Monster %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs);
 			for(j=0;j<item_size;j++)
 			{
 				printf("%.2X ",get_byte(&maz_file, ofs + j, NULL ));
@@ -600,7 +599,7 @@ int export_maz2bmp( char * in_file )
 			{
 				for(j = 0; j<items;j++)
 				{
-					printf("\tL1 sub item %.3d (off:0x%.4X) : ",j, ofs + item_size);
+					printf("\tMonster_item %.3d (off:0x%.4X) : ",j, ofs + item_size);
 					for(k=0;k< 14; k++)
 					{
 						printf("%.2X ", get_byte(&maz_file, ofs + item_size + k, NULL ) );
