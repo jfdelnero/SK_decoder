@@ -536,7 +536,7 @@ int export_maz2bmp( char * in_file )
 			{
 				for(j = 0; j<sub_items;j++)
 				{
-					printf("\t\tObject_sub_item2 %.3d (off:0x%.4X) : ", j, ofs + item_size);
+					printf("\tObject_sub_item2 %.3d (off:0x%.4X) : ", j, ofs + item_size);
 					for(k=0;k< 16; k++)
 					{
 						printf("%.2X ", get_byte(&maz_file, ofs + item_size + k, NULL ) );
