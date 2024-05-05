@@ -322,11 +322,11 @@ int calc_tile_offset(int off_code, int stepsize)
 {
 	if(off_code > 4)
 		off_code = 4;
-	
+
 	if(off_code < -4)
 		off_code = -4;
 
-	return (stepsize / 2) + ((stepsize / 9) * off_code);	
+	return (stepsize / 2) + ((stepsize / 9) * off_code);
 }
 
 int export_maz2bmp( char * in_file )
@@ -445,11 +445,11 @@ int export_maz2bmp( char * in_file )
 				sprintf(tmp_str,"o%.2X", get_ushort(&maz_file, ofs, NULL ));
 			}
 
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  
-							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size), 
-							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size), 
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
+							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size),
+							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size),
 							0x0002, tmp_str );
-			
+
 			printf("Item %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs);
 			for(j=0;j<18;j++)
 			{
@@ -527,10 +527,10 @@ int export_maz2bmp( char * in_file )
 
 			if(get_decoration_name(get_ushort(&maz_file, ofs , NULL )))
 				printf(" (%s)",get_decoration_name(get_ushort(&maz_file, ofs , NULL )));
-			
+
 			printf("\n");
-				
-			
+
+
 			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
 				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
 
@@ -606,7 +606,7 @@ int export_maz2bmp( char * in_file )
 
 					if(get_obj_name(get_ushort(&maz_file, ofs + item_size , NULL )))
 						printf(" (%s)",get_obj_name(get_ushort(&maz_file, ofs + item_size , NULL )));
-					
+
 					printf("\n");
 					item_size += 16;
 				}
@@ -639,11 +639,11 @@ int export_maz2bmp( char * in_file )
 				sprintf(tmp_str,"o%.2X", get_ushort(&maz_file, ofs, NULL ));
 			}
 
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  
-							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size), 
-							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size), 
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
+							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size),
+							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size),
 							0x0002, tmp_str );
-			
+
 			ofs += item_size;
 		}
 
@@ -686,10 +686,10 @@ int export_maz2bmp( char * in_file )
 					{
 						printf("%.2X ", get_byte(&maz_file, ofs + item_size + k, NULL ) );
 					}
-					
+
 					if(get_obj_name(get_ushort(&maz_file, ofs + item_size  , NULL )))
 						printf(" (%s)",get_obj_name(get_ushort(&maz_file, ofs + item_size  , NULL )));
-					
+
 					printf("\n");
 					item_size += 14;
 				}
@@ -706,11 +706,11 @@ int export_maz2bmp( char * in_file )
 				sprintf(tmp_str,"M%.2X", get_ushort(&maz_file, ofs, NULL ));
 			}
 
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),  
-							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size), 
-							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size), 
+			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
+							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size),
+							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size),
 							0x0002, tmp_str );
-			
+
 			ofs += item_size;
 		}
 
