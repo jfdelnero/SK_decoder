@@ -741,17 +741,49 @@ int export_maz2bmp( char * in_file )
 	return 0;
 }
 
+int export_enc2txt( char * in_file, char * out_file )
+{
+	file_cache enc_file;
+	int i;
+	uint8_t d;
+	FILE *f;
+
+	if( open_file( &enc_file, in_file, -1, 0 ) < 0 )
+	{
+		printf("File access error : %s\n",in_file);
+		return -1;
+	}
+
+	f = fopen(out_file,"wb");
+	if(f)
+	{
+		d = 0xFF;
+		for(i=0;i<enc_file.file_size;i++)
+		{
+			fprintf( f, "%c", get_byte(&enc_file, i, NULL ) ^ d );
+			d--;
+		}
+		fclose(f);
+	}
+
+	close_file( &enc_file );
+
+	return 0;
+}
+
 #define BMP_MODE 0
+#define ENC_MODE 1
 
 int main (int argc, char ** argv)
 {
 	int i,mode;
+	char out_file[512];
 
 	printf("SK MAZ converter V1.0 by HxC2001 (2024 http://hxc2001.free.fr)\n\n");
 
 	if ( argc < 2 )
 	{
-		printf("Syntax : %s  [-bmp] [maz_file.maz files]\n",argv[0]);
+		printf("Syntax : %s  [-bmp/-enc] [maz_file.maz/encoded.enc files]\n",argv[0]);
 		exit(1);
 	}
 
@@ -759,6 +791,16 @@ int main (int argc, char ** argv)
 	if( isOption(argc, argv,"bmp",NULL, NULL) )
 	{
 		mode = BMP_MODE;
+	}
+
+	if( isOption(argc, argv,"enc",NULL, NULL) )
+	{
+		sprintf(out_file,"out.txt");
+		mode = ENC_MODE;
+	}
+
+	if( isOption(argc, argv,"out",(char*)&out_file, NULL) )
+	{
 	}
 
 	i = 1;
@@ -770,6 +812,9 @@ int main (int argc, char ** argv)
 			{
 				case BMP_MODE:
 					export_maz2bmp( argv[i] );
+				break;
+				case ENC_MODE:
+					export_enc2txt( argv[i], out_file );
 				break;
 			}
 		}
