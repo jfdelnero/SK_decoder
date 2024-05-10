@@ -48,95 +48,28 @@
 #include <stdarg.h>
 #include "bmp_file.h"
 #include "cache.h"
-
+#include "sk_gfx.h"
 #include "font4x6.h"
 
 #include "cmd_param.h"
 
 #include "sk_id.h"
+#include "utils.h"
 
-int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *palettefile1,char *palettefile2)
+int rawto24bbmp(uint32_t *rawdata,int xsize,int ysize,char *filename)
 {
-	int i;
-	unsigned char palette[256*4];
 	bitmap_data bmp;
-	file_cache pal_file;
-	int numcolor;
 
-	bmp.palette = (unsigned char *)&palette;
 	bmp.xsize = xsize;
 	bmp.ysize = ysize;
-	bmp.nb_color = 256;
 	bmp.data = (uint32_t *)rawdata;
 
-	//init palette
-
-	if(!strlen(palettefile1) && !strlen(palettefile2) )
-	{
-		for(i=0;i<256;i++)
-		{
-			bmp.palette[(i*4) + 0] = i;
-			bmp.palette[(i*4) + 1] = i;
-			bmp.palette[(i*4) + 2] = i;
-		}
-	}
-	else
-	{
-		for(i=0;i<256;i++)
-		{
-
-			bmp.palette[i*4] = 0;
-			bmp.palette[i*4+1] = 0;
-			bmp.palette[i*4+2] = 0;
-		}
-	}
-
-	if(strlen(palettefile1))
-	{
-		if( open_file( &pal_file, palettefile1, -1, 0 ) >= 0 )
-		{
-			numcolor = get_ushort( &pal_file, 0, NULL);
-			for(i=0;i<numcolor;i++)
-			{
-				bmp.palette[(i*4)]   = get_byte( &pal_file, (i*3)+2, NULL) * 4;
-				bmp.palette[(i*4)+1] = get_byte( &pal_file, (i*3)+1, NULL) * 4;
-				bmp.palette[(i*4)+2] = get_byte( &pal_file, (i*3)+0, NULL) * 4;
-			}
-
-			close_file( &pal_file );
-		}
-		else
-		{
-			printf("Warning : cannot open primary palette file %s\n",palettefile1);
-		}
-	}
-
-	if(strlen(palettefile2))
-	{
-		if( open_file( &pal_file, palettefile2, -1, 0 ) >= 0 )
-		{
-			numcolor = get_ushort( &pal_file, 0, NULL);
-			for(i=0;i<numcolor;i++)
-			{
-				bmp.palette[(i*4)]   = get_byte( &pal_file, (i*3)+2, NULL) * 4;
-				bmp.palette[(i*4)+1] = get_byte( &pal_file, (i*3)+1, NULL) * 4;
-				bmp.palette[(i*4)+2] = get_byte( &pal_file, (i*3)+0, NULL) * 4;
-			}
-
-			close_file( &pal_file );
-		}
-		else
-		{
-			printf("Warning : cannot open secondary palette file %s\n",palettefile2);
-		}
-	}
-
-	bmpRLE8b_write(filename,&bmp);
+	bmp24b_write(filename, &bmp);
 
 	return 0;
 }
 
-void printchar(unsigned char * buf, int bufxsize, int bufysize, int xpos, int ypos, uint32_t flags, unsigned char c)
+void printchar(uint32_t * buf, int bufxsize, int bufysize, int xpos, int ypos, uint32_t flags, unsigned char c)
 {
 	int startoffset;
 	int charoffset;
@@ -166,7 +99,7 @@ void printchar(unsigned char * buf, int bufxsize, int bufysize, int xpos, int yp
 					{
 						if( flags & 0x1)
 						{
-							buf[pix_ofs] = 0x10;
+							buf[pix_ofs] = 0x101010;
 						}
 					}
 				}
@@ -175,7 +108,7 @@ void printchar(unsigned char * buf, int bufxsize, int bufysize, int xpos, int yp
 	}
 }
 
-int bmp_printf(unsigned char * buf, int xsize, int ysize, int xpos, int ypos, uint32_t flags, char * string, ... )
+int bmp_printf(uint32_t * buf, int xsize, int ysize, int xpos, int ypos, uint32_t flags, char * string, ... )
 {
 	va_list marker;
 	va_start( marker, string );
@@ -209,7 +142,7 @@ int bmp_printf(unsigned char * buf, int xsize, int ysize, int xpos, int ypos, ui
 	return 0;
 }
 
-void fillbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
+void fillbox(uint32_t * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
 {
 	int startoffset;
 	int x,y;
@@ -224,12 +157,14 @@ void fillbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypo
 		for( x = 0; x < (xpos2 - xpos1) + 1; x++)
 		{
 			pix = buf[startoffset + (y*bufxsize) + x];
-			buf[startoffset + (y*bufxsize) + x] = (uint8_t)((float)pix * level);
+			buf[startoffset + (y*bufxsize) + x] = ((uint32_t)((float)((pix>>0)&0xFF) * level)<<0) |
+												  ((uint32_t)((float)((pix>>8)&0xFF) * level)<<8) |
+												  ((uint32_t)((float)((pix>>16)&0xFF) * level)<<16);
 		}
 	}
 }
 
-void drawbox(unsigned char * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
+void drawbox(uint32_t * buf, int bufxsize, int bufysize, int xpos1, int ypos1,int xpos2, int ypos2, unsigned char wall)
 {
 	int startoffset;
 	int x,y;
@@ -329,6 +264,241 @@ int calc_tile_offset(int off_code, int stepsize)
 	return (stepsize / 2) + ((stepsize / 9) * off_code);
 }
 
+static uint32_t rgb(uint8_t r, uint8_t g, uint8_t b)
+{
+	return ((((uint32_t)b)<<16) | (((uint32_t)g)<<8) | (((uint32_t)r)<<0));
+}
+
+void disp_sprite( uint32_t * buf, int bufxsize, int bufysize, gfx * img, int xpos, int ypos)
+{
+	int dstoffset,srcoffset;
+	int x,y;
+	uint8_t pix;
+
+	xpos = xpos - (img->xsize/2);
+	ypos = ypos - (img->ysize/2);
+
+	srcoffset = 0;
+	dstoffset = (ypos * bufxsize) + xpos;
+
+	for(y=0;y<img->ysize;y++)
+	{
+		for(x=0;x<img->xsize;x++)
+		{
+			if(
+				( xpos + x >= 0 && xpos + x < bufxsize) &&
+				( ypos + y >= 0 && ypos + y < bufysize)
+			)
+			{
+				if( img->alpha[srcoffset] )
+				{
+					dstoffset = ( (ypos + y) * bufxsize ) + ( xpos + x );
+					pix = img->buf[srcoffset];
+					buf[dstoffset] = rgb(img->pal[(pix*3) + 2],img->pal[(pix*3) + 1],img->pal[(pix*3) + 0]);
+				}
+				srcoffset++;
+			}
+		}
+	}
+}
+
+void get_gpr_folder(char * fullmazpath, char * grp_folder, char * name, char * ext, char * outpath)
+{
+	int l;
+
+	hxc_getpathfolder(fullmazpath, outpath, SYS_PATH_TYPE);
+
+	l = strlen(outpath);
+
+	outpath[l - 1] = 0;
+	while(l && outpath[l] != '/')
+	{
+		l--;
+	}
+	outpath[l] = 0;
+
+	strcat(outpath,"/");
+	strcat(outpath,grp_folder);
+	strcat(outpath,"/");
+	if(name)
+	{
+		strcat(outpath, name );
+		strcat(outpath, ext);
+	}
+}
+
+void getpalfolder(char * fullmazpath, char * palfolder, char * name)
+{
+	int l;
+
+	hxc_getpathfolder(fullmazpath, palfolder, SYS_PATH_TYPE);
+
+	l = strlen(palfolder);
+
+	palfolder[l - 1] = 0;
+	while(l && palfolder[l] != '/')
+	{
+		l--;
+	}
+	palfolder[l] = 0;
+
+	strcat(palfolder,"/GROUP24_ungrouped/");
+	if(name)
+	{
+		strcat(palfolder, name );
+		strcat(palfolder, ".PAL");
+	}
+}
+
+void getencfolder(char * fullmazpath, char * palfolder, char * name)
+{
+	getpalfolder( fullmazpath, palfolder, name);
+}
+
+void getspritefolder(char * fullmazpath, char * spritefolder, char * name, char * ext)
+{
+	hxc_getpathfolder(fullmazpath, spritefolder, SYS_PATH_TYPE);
+
+	strcat(spritefolder,"/");
+	if(name)
+	{
+		strcat(spritefolder, name );
+		if(ext)
+			strcat(spritefolder, ext );
+	}
+}
+
+int gen_obj_def(char * in_def_file, char * in_enc_file)
+{
+	file_cache def_file;
+	file_cache enc_file;
+	int i, j, l;
+	char * enc_buf;
+	uint8_t d;
+	char tmp_str[128];
+	char * ptr;
+
+	for(i=0;i<MAX_OBJ;i++)
+	{
+		sk_objects[i].id = 0xFFFF;
+		sk_objects[i].name = NULL;
+		sk_objects[i].desc = NULL;
+	}
+
+	// Get the objects id
+
+	if( open_file( &def_file, in_def_file, -1, 0 ) < 0 )
+	{
+		printf("obj def file access error : %s\n",in_def_file);
+		return -1;
+	}
+
+	printf("Loading objects definitions ...\n");
+
+	i = 0;
+	while( i < def_file.file_size / 56 && i < MAX_OBJ - 1 )
+	{
+		sk_objects[i].id = i;
+
+		sk_objects[i].name = calloc(1,10);
+
+		j = 0;
+		while( get_byte(&def_file, (i * 56) + 6 + j , NULL )  && j < 8 )
+		{
+			sk_objects[i].name[j] = get_byte(&def_file, (i * 56) + 6 + j , NULL );
+			j++;
+		}
+
+		sk_objects[i].desc = NULL;
+
+		i++;
+	}
+
+	close_file( &def_file );
+
+	// Get the objects descriptions
+	if( open_file( &enc_file, in_enc_file, -1, 0 ) < 0 )
+	{
+		printf("enc script file access error : %s\n",in_def_file);
+		return -1;
+	}
+
+	enc_buf = malloc( enc_file.file_size + 1 );
+	if( enc_buf )
+	{
+		memset( enc_buf, 0, enc_file.file_size  + 1 );
+
+		d = 0xFF;
+		for(i=0;i<enc_file.file_size;i++)
+		{
+			enc_buf[i] = get_byte(&enc_file, i, NULL ) ^ d;
+			d--;
+		}
+
+
+		i = 0;
+		while( sk_objects[i].id != 0xFFFF )
+		{
+			strcpy(tmp_str, "item_");
+			strcat(tmp_str, sk_objects[i].name);
+
+			if(strlen(tmp_str) < 9)
+				strcat(tmp_str, "  { \"");
+			else
+				strcat(tmp_str, " { \"");
+
+			j = 0;
+			while( tmp_str[j] )
+			{
+				if( tmp_str[j] >= 'A' && tmp_str[j] <= 'Z' )
+				{
+					tmp_str[j] = tmp_str[j] + ('a' - 'A');
+				}
+				j++;
+			}
+
+			sk_objects[i].desc = calloc(1,128);
+
+			ptr = strstr(enc_buf, tmp_str);
+			if( ptr )
+			{
+				l = strlen(tmp_str);
+
+				j = 0;
+				while( j < 128 - 1 && ptr[l + j] != '"' )
+				{
+					sk_objects[i].desc[j] = ptr[l + j];
+					j++;
+				}
+			}
+			i++;
+		}
+		free(enc_buf);
+	}
+
+	close_file( &enc_file );
+
+#if 0
+	i = 0;
+	while( sk_objects[i].id != 0xFFFF )
+	{
+		if( sk_objects[i].name )
+		{
+			if( !sk_objects[i].desc )
+				printf("Object 0x%.4X : %s  \t|\t???\n", sk_objects[i].id, sk_objects[i].name);
+			else
+				printf("Object 0x%.4X : %s  \t|\t%s\n", sk_objects[i].id, sk_objects[i].name,sk_objects[i].desc);
+		}
+		else
+		{
+			printf("Object 0x%.4X : ???\n");
+		}
+		i++;
+	}
+#endif
+	return 0;
+}
+
 int export_maz2bmp( char * in_file )
 {
 	file_cache maz_file;
@@ -339,12 +509,17 @@ int export_maz2bmp( char * in_file )
 	uint32_t header;
 	int step_size;
 	int nb_obj,item_size;
+	gfx * img;
 
 	char nomfichier[256*2];
 	char nomfichier2[256];
 	char tmp_str[256];
+	char tmp_str2[256*4];
 
-	unsigned char * bmp_buf;
+	char enc_file[256*4];
+	char def_file[256*4];
+
+	uint32_t * bmp_buf;
 
 	unsigned int xsize,ysize;
 
@@ -354,6 +529,11 @@ int export_maz2bmp( char * in_file )
 	// [number_of_objects ?][uint16_t:code, uint16_t:xpos, uint16_t:ypos, 12 uint8_t obj data  ]
 
 	printf("MAZ file : %s\n", in_file);
+
+	get_gpr_folder(in_file, "GROUP24_ungrouped", "BOOKINT", ".ENC", enc_file);
+	get_gpr_folder(in_file, "GROUP24_ungrouped", "OBJTYPE", ".DEF", def_file);
+
+	gen_obj_def(def_file,enc_file);
 
 	if( open_file( &maz_file, in_file, -1, 0 ) < 0 )
 	{
@@ -398,10 +578,10 @@ int export_maz2bmp( char * in_file )
 	printf("offset: 0x%.8x map size: %d by %d\n",ofs,xsize,ysize);
 	sprintf(nomfichier,"%s.bmp",nomfichier2);
 
-	bmp_buf = (unsigned char*)malloc((xsize*step_size)*(ysize*step_size));
+	bmp_buf = (uint32_t*)malloc((xsize*step_size)*(ysize*step_size) * sizeof(uint32_t));
 	if( bmp_buf )
 	{
-		memset(bmp_buf,0xFF,(xsize*step_size)*(ysize*step_size));
+		memset(bmp_buf, 0xFF, (xsize*step_size) * (ysize*step_size) * sizeof(uint32_t));
 
 		for(y=0;y<ysize;y++)
 		{
@@ -436,19 +616,47 @@ int export_maz2bmp( char * in_file )
 
 		for(i=0;i<nb_obj;i++)
 		{
+			int centerx = (get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size);
+			int centery = (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size);
+
 			if( get_obj_name( get_ushort(&maz_file, ofs, NULL ) ) )
 			{
 				sprintf(tmp_str,"%s", get_obj_name( get_ushort(&maz_file, ofs, NULL ) ) );
+
+				// Try to load the sprite
+				get_gpr_folder( in_file, "GROUP24_ungrouped", get_obj_name( get_ushort(&maz_file, ofs, NULL ) ) ,".POJ", tmp_str2);
+
+				img = load_gfx( tmp_str2, 0, NULL );
+				if( img )
+				{
+					getpalfolder(in_file, (char*)&tmp_str2, "DUNGEO00" );
+					loadgfxpal( img, tmp_str2);
+
+					getpalfolder(in_file, (char*)&tmp_str2, get_obj_name( get_ushort(&maz_file, ofs, NULL )) );
+					loadgfxpal( img, tmp_str2);
+
+					disp_sprite( bmp_buf, (xsize*step_size), (ysize*step_size), img, centerx, centery);
+
+					img = unload_gfx( img );
+
+					tmp_str[0] = 0;
+				}
 			}
 			else
 			{
-				sprintf(tmp_str,"o%.2X", get_ushort(&maz_file, ofs, NULL ));
+				sprintf(tmp_str,"item %.2X", get_ushort(&maz_file, ofs, NULL ));
 			}
 
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
-							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size),
-							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size),
-							0x0002, tmp_str );
+			if(strlen(tmp_str))
+			{
+				sprintf(tmp_str,"item %.2X", get_ushort(&maz_file, ofs, NULL ));
+
+				bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
+								centerx,
+								centery,
+								0x0002, tmp_str );
+			}
+
 
 			printf("Item %.3d (%.2d,%.2d) (off:0x%.4X) : ",i,get_ushort(&maz_file, ofs + 4, NULL ), (get_ushort(&maz_file, ofs + 2, NULL ) ), ofs);
 			for(j=0;j<18;j++)
@@ -457,7 +665,7 @@ int export_maz2bmp( char * in_file )
 			}
 
 			if(get_obj_name(get_ushort(&maz_file, ofs , NULL )))
-				printf(" (%s)",get_obj_name(get_ushort(&maz_file, ofs , NULL )));
+				printf(" (%s - %s)",get_obj_name(get_ushort(&maz_file, ofs , NULL )), get_obj_desc(get_ushort(&maz_file, ofs , NULL )));
 
 			printf("\n");
 
@@ -530,7 +738,6 @@ int export_maz2bmp( char * in_file )
 
 			printf("\n");
 
-
 			if( get_ushort(&maz_file, ofs + 4, NULL ) >= xsize)
 				printf(" bad x position ! (%d)\n", get_ushort(&maz_file, ofs + 4, NULL ));
 
@@ -586,7 +793,7 @@ int export_maz2bmp( char * in_file )
 					}
 
 					if(get_obj_name(get_ushort(&maz_file, ofs + item_size - 2 , NULL )))
-						printf(" (%s)",get_obj_name(get_ushort(&maz_file, ofs + item_size - 2 , NULL )));
+						printf(" (%s - %s)",get_obj_name(get_ushort(&maz_file, ofs + item_size - 2 , NULL )), get_obj_desc(get_ushort(&maz_file, ofs + item_size - 2 , NULL )));
 
 					printf("\n");
 					item_size += 16;
@@ -630,19 +837,43 @@ int export_maz2bmp( char * in_file )
 			if( items || sub_items)
 				printf("\n");
 
+			int centerx = (get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size);
+			int centery = (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size);
+
 			if( get_fixed_obj_name( get_ushort(&maz_file, ofs, NULL ) ) )
 			{
 				sprintf(tmp_str,"%s", get_fixed_obj_name( get_ushort(&maz_file, ofs, NULL ) ) );
+
+				// Try to load the sprite
+				getspritefolder( in_file, tmp_str2, get_fixed_obj_name( get_ushort(&maz_file, ofs, NULL )), ".MSP");
+
+				img = load_gfx( tmp_str2, get_ushort(&maz_file, ofs + 16, NULL ), NULL );
+				if( img )
+				{
+					getpalfolder(in_file, (char*)&tmp_str2, "DUNGEO00" );
+					loadgfxpal( img, tmp_str2);
+
+					getpalfolder(in_file, (char*)&tmp_str2, get_fixed_obj_name( get_ushort(&maz_file, ofs, NULL )) );
+					loadgfxpal( img, tmp_str2);
+
+					disp_sprite( bmp_buf, (xsize*step_size), (ysize*step_size), img, centerx, centery);
+
+					img = unload_gfx( img );
+					tmp_str[0] = '\0';
+				}
 			}
 			else
 			{
-				sprintf(tmp_str,"o%.2X", get_ushort(&maz_file, ofs, NULL ));
+				sprintf(tmp_str,"obj %.2X", get_ushort(&maz_file, ofs, NULL ));
 			}
 
-			bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
-							(get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size),
-							(get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size),
+			if(strlen(tmp_str))
+			{
+				bmp_printf(bmp_buf,  (xsize*step_size), (ysize*step_size),
+							centerx,
+							centery,
 							0x0002, tmp_str );
+			}
 
 			ofs += item_size;
 		}
@@ -688,7 +919,7 @@ int export_maz2bmp( char * in_file )
 					}
 
 					if(get_obj_name(get_ushort(&maz_file, ofs + item_size  , NULL )))
-						printf(" (%s)",get_obj_name(get_ushort(&maz_file, ofs + item_size  , NULL )));
+						printf(" (%s - %s)",get_obj_name(get_ushort(&maz_file, ofs + item_size  , NULL )), get_obj_desc(get_ushort(&maz_file, ofs + item_size, NULL )));
 
 					printf("\n");
 					item_size += 14;
@@ -697,9 +928,30 @@ int export_maz2bmp( char * in_file )
 				printf("\n");
 			}
 
+			int centerx = (get_ushort(&maz_file, ofs + 4, NULL ) * step_size) + calc_tile_offset( get_short(&maz_file, ofs + 8, NULL ), step_size);
+			int centery = (get_ushort(&maz_file, ofs + 2, NULL ) * step_size) + calc_tile_offset(-get_short(&maz_file, ofs + 6, NULL ), step_size);
+
 			if( get_monster_name( get_ushort(&maz_file, ofs, NULL ) ) )
 			{
 				sprintf(tmp_str,"%s", get_monster_name( get_ushort(&maz_file, ofs, NULL ) ) );
+
+				// Try to load the sprite
+				getspritefolder( in_file, tmp_str2, get_monster_name( get_ushort(&maz_file, ofs, NULL )), ".MSP");
+
+				img = load_gfx( tmp_str2, get_ushort(&maz_file, ofs + 16, NULL ), NULL );
+				if( img )
+				{
+					getpalfolder(in_file, (char*)&tmp_str2, "DUNGEO00" );
+					loadgfxpal( img, tmp_str2);
+
+					getpalfolder(in_file, (char*)&tmp_str2, get_monster_name( get_ushort(&maz_file, ofs, NULL )) );
+					loadgfxpal( img, tmp_str2);
+
+					disp_sprite( bmp_buf, (xsize*step_size), (ysize*step_size), img, centerx, centery);
+
+					img = unload_gfx( img );
+				}
+
 			}
 			else
 			{
@@ -727,7 +979,19 @@ int export_maz2bmp( char * in_file )
 			bmp_printf(bmp_buf, (xsize*step_size), (ysize*step_size), ((xsize-1) * step_size ) + (step_size / 4), (step_size * y) + (step_size / 4), 0x0, "%d", y );
 		}
 
-		rawtobmp(bmp_buf,(xsize*step_size),(ysize*step_size),nomfichier,"","");
+		rawto24bbmp(bmp_buf,(xsize*step_size),(ysize*step_size),nomfichier );
+
+		i = 0;
+		while( sk_objects[i].id != 0xFFFF )
+		{
+			if( sk_objects[i].name )
+				free(sk_objects[i].name);
+
+			if( sk_objects[i].desc )
+				free(sk_objects[i].desc);
+
+			i++;
+		}
 
 		free(bmp_buf);
 	}

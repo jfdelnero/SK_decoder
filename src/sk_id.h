@@ -28,11 +28,15 @@
 typedef struct sk_obj_id_def_
 {
 	unsigned short id;
-	const char * name;
+	char * name;
+	char * desc;
 }sk_obj_id_def;
 
-const char * get_obj_name(unsigned short id);
-const char * get_fixed_obj_name(unsigned short id);
-const char * get_monster_name(unsigned short id);
-const char * get_decoration_name(unsigned short id);
+char * get_obj_name(unsigned short id);
+char * get_obj_desc(unsigned short id);
+char * get_fixed_obj_name(unsigned short id);
+char * get_monster_name(unsigned short id);
+char * get_decoration_name(unsigned short id);
 
+#define MAX_OBJ 512
+extern sk_obj_id_def sk_objects[MAX_OBJ];

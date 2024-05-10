@@ -50,120 +50,7 @@
 
 #include "cmd_param.h"
 
-static unsigned int unpackLZ77(file_cache * f, unsigned char * dst, unsigned int max_out_size, int src_offset, int len)
-{
-	unsigned char *P;
-	unsigned char * start_dst_p;
-	unsigned char * end_dst_p;
-	unsigned char bit;
-	unsigned char code;
-	unsigned short ref;
-	int end_src;
-	unsigned int unpacked_size;
-
-	unpacked_size = 0;
-	end_src = src_offset + len;
-	start_dst_p = dst;
-	end_dst_p = dst + max_out_size;
-
-	while (src_offset < end_src)
-	{
-		code = get_byte( f, src_offset++, NULL);
-
-		for( bit = 0;  bit < 8; bit++)
-		{
-			if ( code & (0x1 << bit) )
-			{
-				// backreference :
-				// 12-bit distance and 4-bit length
-				ref = get_ushort( f, src_offset, NULL);
-				src_offset += 2;
-				P = dst - ( ref >> 4 );
-				ref = ( ref & 0xF ) + 3;
-				unpacked_size += ref;
-				while(ref--)
-				{
-					if((dst < end_dst_p) && (P >= start_dst_p) &&  (P < end_dst_p) )
-					{
-						*dst++ = *P++;
-					}
-				}
-			}
-			else
-			{
-				if(dst < end_dst_p)
-				{
-					*dst++ = get_byte( f, src_offset++, NULL);
-				}
-				unpacked_size++;
-			}
-		}
-	}
-
-	return unpacked_size;
-}
-
-static int unpackRLE(unsigned char * dst, unsigned char * src, int len)
-{
-	#define JUMPPIX 0
-	#define COPYPIX 1
-	int statemachine;
-	unsigned char c;
-	int m,l;
-
-	////////////////////////////////////////////////////////////
-	// Sprite to bitmap conversion state machine
-	//
-	l=0;
-	m=0;
-
-	c = src[m];
-
-	if( c & 0x80 )
-		statemachine=JUMPPIX;
-	else
-		statemachine=COPYPIX;
-
-	while( l < len )
-	{
-		switch(statemachine)
-		{
-			case JUMPPIX:
-				c = c & 0x7f;
-				l += c;
-				m++;
-				c = src[m];
-				if( c & 0x80 )
-					statemachine = JUMPPIX;
-				else
-					statemachine = COPYPIX;
-			break;
-
-			case COPYPIX:
-				m++;
-				do
-				{
-					dst[l] = src[m];
-					l++;
-					m++;
-					c--;
-				}while(c!=0);
-
-				c = src[m];
-				if( !( c & 0x80 ) )
-					statemachine=COPYPIX;
-				else
-					statemachine=JUMPPIX;
-
-			break;
-
-			default:
-			break;
-		}
-	}
-
-	return l;
-}
+#include "sk_gfx.h"
 
 int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *palettefile1,char *palettefile2)
 {
@@ -249,33 +136,18 @@ int rawtobmp(unsigned char *rawdata,int xsize,int ysize,char *filename,char *pal
 
 int export_gfx( char * in_file, char * pal1_path, char * pal2_path )
 {
-	file_cache gfx_file;
-
 	char nomfichier[256*2];
 	char nomfichier2[256];
 
 	int j;
-	uint32_t ptr1;
-
-	unsigned char * bufferout;
-	unsigned char * bufferout2;
-
 	int nbrimage;
-	int blocksize;
-	int unpackedsize;
+	gfx * img;
 
-	unsigned int xsize,ysize;
+	nbrimage = 0;
 
-	if( open_file( &gfx_file, in_file, -1, 0 ) < 0 )
-	{
-		printf("File access error : %s\n",in_file);
-		return -1;
-	}
-
-	nbrimage = get_byte( &gfx_file, 0, NULL);
+	load_gfx( in_file, -1, &nbrimage );
 
 	printf("found %d images in this file:\n",nbrimage);
-
 	if(strrchr( in_file,'\\'))
 	{
 		sprintf(nomfichier2,"%s",strrchr(in_file,'\\')+1);
@@ -293,61 +165,24 @@ int export_gfx( char * in_file, char * pal1_path, char * pal2_path )
 	j=0;
 	while( j < nbrimage )
 	{
-		ptr1 = get_ulong(&gfx_file, (j*6)+2, NULL);
-		blocksize = get_ushort(&gfx_file, (j*6) + 4 + 2, NULL);
-
-		if( blocksize &&  ptr1 )
+		img = load_gfx( in_file, j, NULL );
+		if(img)
 		{
-			xsize = get_ushort(&gfx_file, ptr1 + 2, NULL);
-			ysize = get_ushort(&gfx_file, ptr1 + 2 + 2, NULL);
+			if( pal1_path )
+				loadgfxpal( img, pal1_path );
 
-			printf("%d : offset: 0x%.8x blocksize: 0x%.8x res: %d by %d\n",j,ptr1,blocksize,xsize,ysize);
+			if( pal2_path )
+				loadgfxpal( img, pal2_path );
 
-			bufferout = (unsigned char*)malloc(xsize*ysize*2);
-			if( bufferout )
-			{
-				memset(bufferout,0x00,xsize*ysize*2);
+			sprintf(nomfichier,"%s_%.3d.bmp",nomfichier2,j);
 
-				unpackedsize = unpackLZ77( &gfx_file, (unsigned char *)bufferout, xsize*ysize*2, ptr1+20, blocksize-20);
+			gfx2bmp( img, nomfichier, pal1_path, pal2_path );
 
-				if( unpackedsize > xsize*ysize*2 )
-				{
-					printf("Warning : unpack error !\n");
-				}
-
-				bufferout2=(unsigned char*)malloc(xsize*ysize*2);
-				if(bufferout2)
-				{
-					memset(bufferout2,0x00,xsize*ysize*2);
-
-					unpackRLE( bufferout2, bufferout, xsize*ysize);
-
-					/////////////////////////////////////////////////
-					// Write bitmap to a bmp file
-					//
-					//
-					sprintf(nomfichier,"%s_%.3d.bmp",nomfichier2,j);
-
-					rawtobmp(bufferout2,xsize,ysize,nomfichier,pal1_path,pal2_path);
-
-					free(bufferout2);
-				}
-				else
-				{
-					printf("Fatal Error : cannot allocate %d bytes\n",xsize*ysize*2);
-				}
-
-				free(bufferout);
-			}
-			else
-			{
-				printf("Fatal Error : cannot allocate %d bytes\n",xsize*ysize*2);
-			}
+			img = unload_gfx( img );
 		}
+
 		j++;
 	}
-
-	close_file( &gfx_file );
 
 	return 0;
 }
